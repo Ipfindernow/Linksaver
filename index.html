@@ -2,30 +2,35 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>LinkSaver Live</title>
+    <title>LinkSaver Live - With Delete</title>
     <style>
         body { font-family: sans-serif; background: #f0f2f5; display: flex; justify-content: center; padding: 20px; }
         .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; }
-        input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .input-group { display: flex; gap: 5px; }
+        input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
         button { padding: 10px; background: #1a73e8; color: white; border: none; border-radius: 5px; cursor: pointer; }
         #status { font-size: 0.8rem; margin: 10px 0; color: #666; }
-        .link-box { border-bottom: 1px solid #eee; padding: 10px 0; }
-        a { color: #1a73e8; text-decoration: none; font-weight: bold; }
+        .link-box { border-bottom: 1px solid #eee; padding: 15px 0; display: flex; justify-content: space-between; align-items: center; }
+        .link-content a { color: #1a73e8; text-decoration: none; font-weight: bold; word-break: break-all; }
+        .delete-btn { background: #ea4335; font-size: 0.7rem; padding: 5px 10px; margin-left: 10px; }
+        .delete-btn:hover { background: #c5221f; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <h2>Share a Link</h2>
-    <input type="text" id="urlInput" placeholder="https://google.com">
-    <button id="sendBtn">Share</button>
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="https://google.com">
+        <button id="sendBtn">Share</button>
+    </div>
     <div id="status">Ready</div>
     <div id="displayArea"></div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyCN2DFH_533JLjgCKGeC2itUiEDC3-Okr8",
@@ -61,20 +66,42 @@
             status.innerText = "Sent successfully!";
         } catch (e) {
             status.innerText = "Error: Check Firestore Rules!";
-            console.error(e);
         }
     };
 
-    // READ DATA (Real-time)
+    // READ DATA & RENDER DELETE BUTTONS
     const q = query(linksRef, orderBy("time", "desc"));
     onSnapshot(q, (snapshot) => {
         display.innerHTML = "";
-        snapshot.forEach((doc) => {
-            const data = doc.data();
+        snapshot.forEach((snapshotDoc) => {
+            const data = snapshotDoc.data();
+            const docId = snapshotDoc.id; // This is the unique ID for this specific link
+
             const div = document.createElement('div');
             div.className = 'link-box';
-            div.innerHTML = `<a href="${data.link}" target="_blank">${data.link}</a>`;
+            div.innerHTML = `
+                <div class="link-content">
+                    <a href="${data.link}" target="_blank">${data.link}</a>
+                </div>
+                <button class="delete-btn" data-id="${docId}">Delete</button>
+            `;
             display.appendChild(div);
+        });
+
+        // Add click events to all delete buttons
+        document.querySelectorAll('.delete-btn').forEach(button => {
+            button.onclick = async (e) => {
+                const idToDelete = e.target.getAttribute('data-id');
+                if(confirm("Are you sure you want to delete this link?")) {
+                    try {
+                        await deleteDoc(doc(db, "public_links", idToDelete));
+                        status.innerText = "Deleted successfully!";
+                    } catch (err) {
+                        status.innerText = "Error deleting link.";
+                        console.error(err);
+                    }
+                }
+            };
         });
     });
 </script>
